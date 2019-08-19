@@ -24,7 +24,7 @@ DIHARD_EVAL_DIR=/share/mini5/data/audvis/dia/dihard-2018-eval-for-use-with-2019-
 
 dihard_dev=dihard_dev_2018
 
-stage=3
+stage=0
 
 if [ $stage -le 0 ]; then
   # Prepare data directory for DEV set.
@@ -86,16 +86,11 @@ if [ $stage -le 3 ]; then
 fi
 
 echo "Stage 3: Train i-vector extractor done."
-exit
 
 if [ $stage -le 4 ]; then
   sid/extract_ivectors.sh --cmd "$train_cmd --mem 40G" --nj 80 \
-    exp/extractor data/train \
+    exp/extractor data/${dihard_dev} \
     exp/ivectors_train
-
-  sid/extract_ivectors.sh --cmd "$train_cmd --mem 40G" --nj 40 \
-    exp/extractor data/voxceleb1_test \
-    exp/ivectors_voxceleb1_test
 fi
 
 echo "Stage 4: Extracting i-vectors done."
@@ -111,32 +106,11 @@ if [ $stage -le 5 ]; then
   $train_cmd exp/ivectors_train/log/lda.log \
     ivector-compute-lda --total-covariance-factor=0.0 --dim=$lda_dim \
     "ark:ivector-subtract-global-mean scp:exp/ivectors_train/ivector.scp ark:- |" \
-    ark:data/train/utt2spk exp/ivectors_train/transform.mat || exit 1;
+    ark:data/${dihard_dev}/utt2spk exp/ivectors_train/transform.mat || exit 1;
 
   # Train the PLDA model.
   $train_cmd exp/ivectors_train/log/plda.log \
-    ivector-compute-plda ark:data/train/spk2utt \
+    ivector-compute-plda ark:data/${dihard_dev}/spk2utt \
     "ark:ivector-subtract-global-mean scp:exp/ivectors_train/ivector.scp ark:- | transform-vec exp/ivectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:-  ark:- |" \
     exp/ivectors_train/plda || exit 1;
-fi
-
-if [ $stage -le 6 ]; then
-  $train_cmd exp/scores/log/voxceleb1_test_scoring.log \
-    ivector-plda-scoring --normalize-length=true \
-    "ivector-copy-plda --smoothing=0.0 exp/ivectors_train/plda - |" \
-    "ark:ivector-subtract-global-mean exp/ivectors_train/mean.vec scp:exp/ivectors_voxceleb1_test/ivector.scp ark:- | transform-vec exp/ivectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
-    "ark:ivector-subtract-global-mean exp/ivectors_train/mean.vec scp:exp/ivectors_voxceleb1_test/ivector.scp ark:- | transform-vec exp/ivectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
-    "cat '$voxceleb1_trials' | cut -d\  --fields=1,2 |" exp/scores_voxceleb1_test || exit 1;
-fi
-
-if [ $stage -le 7 ]; then
-  eer=`compute-eer <(local/prepare_for_eer.py $voxceleb1_trials exp/scores_voxceleb1_test) 2> /dev/null`
-  mindcf1=`sid/compute_min_dcf.py --p-target 0.01 exp/scores_voxceleb1_test $voxceleb1_trials 2> /dev/null`
-  mindcf2=`sid/compute_min_dcf.py --p-target 0.001 exp/scores_voxceleb1_test $voxceleb1_trials 2> /dev/null`
-  echo "EER: $eer%"
-  echo "minDCF(p-target=0.01): $mindcf1"
-  echo "minDCF(p-target=0.001): $mindcf2"
-  # EER: 5.329%
-  # minDCF(p-target=0.01): 0.4933
-  # minDCF(p-target=0.001): 0.6168
 fi
