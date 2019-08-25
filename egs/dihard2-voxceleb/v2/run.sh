@@ -76,14 +76,13 @@ if [ $stage -le 5 ]; then
 fi
 
 echo "Stage 2-5: Remove too short utterances, speakers with few utterances done."
-exit
 
 # Stages 6 through 8 are handled in run_xvector.sh
 local/nnet3/xvector/run_xvector.sh --stage $stage --train-stage -1 \
   --data data/train --nnet-dir $nnet_dir \
   --egs-dir $nnet_dir/egs
 
-echo "Stage 6-8: Remove too short utterances, speakers with few utterances done."
+echo "Stage 6-8: Train nnet done."
 
 if [ $stage -le 9 ]; then
   # Extract x-vectors for centering, LDA, and PLDA training.
