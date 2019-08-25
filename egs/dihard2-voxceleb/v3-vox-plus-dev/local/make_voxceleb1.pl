@@ -14,68 +14,29 @@ if (@ARGV != 2) {
 }
 
 ($data_base, $out_dir) = @ARGV;
-my $out_test_dir = "$out_dir/voxceleb1_test";
-my $out_train_dir = "$out_dir/voxceleb1_train";
+my $data_dir = "$out_dir/voxceleb1_full";
 
-if (system("mkdir -p $out_test_dir") != 0) {
-  die "Error making directory $out_test_dir";
-}
-
-if (system("mkdir -p $out_train_dir") != 0) {
-  die "Error making directory $out_train_dir";
+if (system("mkdir -p $data_dir") != 0) {
+  die "Error making directory $data_dir";
 }
 
 opendir my $dh, "$data_base/voxceleb1_wav" or die "Cannot open directory: $!";
 my @spkr_dirs = grep {-d "$data_base/voxceleb1_wav/$_" && ! /^\.{1,2}$/} readdir($dh);
 closedir $dh;
 
-if (! -e "$data_base/voxceleb1_test.txt") {
-  system("wget -O $data_base/voxceleb1_test.txt http://www.openslr.org/resources/49/voxceleb1_test.txt");
-}
-
 if (! -e "$data_base/vox1_meta.csv") {
   system("wget -O $data_base/vox1_meta.csv http://www.openslr.org/resources/49/vox1_meta.csv");
 }
 
-open(TRIAL_IN, "<", "$data_base/voxceleb1_test.txt") or die "Could not open the verification trials file $data_base/voxceleb1_test.txt";
 open(META_IN, "<", "$data_base/vox1_meta.csv") or die "Could not open the meta data file $data_base/vox1_meta.csv";
-open(SPKR_TEST, ">", "$out_test_dir/utt2spk") or die "Could not open the output file $out_test_dir/utt2spk";
-open(WAV_TEST, ">", "$out_test_dir/wav.scp") or die "Could not open the output file $out_test_dir/wav.scp";
-open(SPKR_TRAIN, ">", "$out_train_dir/utt2spk") or die "Could not open the output file $out_train_dir/utt2spk";
-open(WAV_TRAIN, ">", "$out_train_dir/wav.scp") or die "Could not open the output file $out_train_dir/wav.scp";
-open(TRIAL_OUT, ">", "$out_test_dir/trials") or die "Could not open the output file $out_test_dir/trials";
+open(SPKR_OUT, ">", "$data_dir/utt2spk") or die "Could not open the output file $data_dir/utt2spk";
+open(WAV_OUT, ">", "$data_dir/wav.scp") or die "Could not open the output file $data_dir/wav.scp";
 
 my %id2spkr = ();
 while (<META_IN>) {
   chomp;
   my ($vox_id, $spkr_id, $gender, $nation, $set) = split;
   $id2spkr{$vox_id} = $spkr_id;
-}
-
-my $test_spkrs = ();
-while (<TRIAL_IN>) {
-  chomp;
-  my ($tar_or_non, $path1, $path2) = split;
-
-  # Create entry for left-hand side of trial
-  my ($spkr_id, $filename) = split('/', $path1);
-  my $rec_id = substr($filename, 0, 11);
-  my $segment = substr($filename, 12, 7);
-  my $utt_id1 = "$spkr_id-$rec_id-$segment";
-  $test_spkrs{$spkr_id} = ();
-
-  # Create entry for right-hand side of trial
-  my ($spkr_id, $filename) = split('/', $path2);
-  my $rec_id = substr($filename, 0, 11);
-  my $segment = substr($filename, 12, 7);
-  my $utt_id2 = "$spkr_id-$rec_id-$segment";
-  $test_spkrs{$spkr_id} = ();
-
-  my $target = "nontarget";
-  if ($tar_or_non eq "1") {
-    $target = "target";
-  }
-  print TRIAL_OUT "$utt_id1 $utt_id2 $target\n";
 }
 
 foreach (@spkr_dirs) {
@@ -99,38 +60,20 @@ foreach (@spkr_dirs) {
     my $segment = substr($_, -9, 5);
     my $wav = "$_";
     my $utt_id = "$new_spkr_id-$rec_id-$segment";
-    if (exists $test_spkrs{$new_spkr_id}) {
-      print WAV_TEST "$utt_id", " $wav", "\n";
-      print SPKR_TEST "$utt_id", " $new_spkr_id", "\n";
-    } else {
-      print WAV_TRAIN "$utt_id", " $wav", "\n";
-      print SPKR_TRAIN "$utt_id", " $new_spkr_id", "\n";
-    }
+    print WAV_OUT "$utt_id", " $wav", "\n";
+    print SPKR_OUT "$utt_id", " $new_spkr_id", "\n";
   }
 }
 
-close(SPKR_TEST) or die;
-close(WAV_TEST) or die;
-close(SPKR_TRAIN) or die;
-close(WAV_TRAIN) or die;
-close(TRIAL_OUT) or die;
-close(TRIAL_IN) or die;
+close(SPKR_OUT) or die;
+close(WAV_OUT) or die;
 close(META_IN) or die;
 
 if (system(
-  "utils/utt2spk_to_spk2utt.pl $out_test_dir/utt2spk >$out_test_dir/spk2utt") != 0) {
-  die "Error creating spk2utt file in directory $out_test_dir";
+  "utils/utt2spk_to_spk2utt.pl $data_dir/utt2spk >$data_dir/spk2utt") != 0) {
+  die "Error creating spk2utt file in directory $data_dir";
 }
-system("env LC_COLLATE=C utils/fix_data_dir.sh $out_test_dir");
-if (system("env LC_COLLATE=C utils/validate_data_dir.sh --no-text --no-feats $out_test_dir") != 0) {
-  die "Error validating directory $out_test_dir";
-}
-
-if (system(
-  "utils/utt2spk_to_spk2utt.pl $out_train_dir/utt2spk >$out_train_dir/spk2utt") != 0) {
-  die "Error creating spk2utt file in directory $out_train_dir";
-}
-system("env LC_COLLATE=C utils/fix_data_dir.sh $out_train_dir");
-if (system("env LC_COLLATE=C utils/validate_data_dir.sh --no-text --no-feats $out_train_dir") != 0) {
-  die "Error validating directory $out_train_dir";
+system("env LC_COLLATE=C utils/fix_data_dir.sh $data_dir");
+if (system("env LC_COLLATE=C utils/validate_data_dir.sh --no-text --no-feats $data_dir") != 0) {
+  die "Error validating directory $data_dir";
 }
