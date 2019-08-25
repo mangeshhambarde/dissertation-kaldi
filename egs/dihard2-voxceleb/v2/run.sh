@@ -39,15 +39,14 @@ fi
 echo "Stage 0: Prepare data directory done."
 
 if [ $stage -le 1 ]; then
-  # Make MFCCs and compute the energy-based VAD for each dataset
-  for name in train; do
-    steps/make_mfcc.sh --write-utt2num-frames true --mfcc-config conf/mfcc.conf --nj 40 --cmd "$train_cmd" \
-      data/${name} exp/make_mfcc $mfccdir
-    utils/fix_data_dir.sh data/${name}
-    sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
-      data/${name} exp/make_vad $vaddir
-    utils/fix_data_dir.sh data/${name}
-  done
+  # Make MFCCs and compute the energy-based VAD.
+  steps/make_mfcc.sh --write-utt2num-frames true --mfcc-config conf/mfcc.conf --nj 40 --cmd "$train_cmd" \
+    data/train exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh data/train
+
+  sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
+    data/train exp/make_vad $vaddir
+  utils/fix_data_dir.sh data/train
 fi
 echo "Stage 1: Extract MFCC and compute VAD done."
 
@@ -76,10 +75,15 @@ if [ $stage -le 5 ]; then
   utils/fix_data_dir.sh data/train
 fi
 
+echo "Stage 2-5: Remove too short utterances, speakers with few utterances done."
+exit
+
 # Stages 6 through 8 are handled in run_xvector.sh
 local/nnet3/xvector/run_xvector.sh --stage $stage --train-stage -1 \
   --data data/train --nnet-dir $nnet_dir \
   --egs-dir $nnet_dir/egs
+
+echo "Stage 6-8: Remove too short utterances, speakers with few utterances done."
 
 if [ $stage -le 9 ]; then
   # Extract x-vectors for centering, LDA, and PLDA training.
@@ -87,6 +91,8 @@ if [ $stage -le 9 ]; then
     $nnet_dir data/train \
     $nnet_dir/xvectors_train
 fi
+
+echo "Stage 9: Extract x-vectors done."
 
 if [ $stage -le 10 ]; then
   # Compute the mean vector for centering the evaluation xvectors.
@@ -108,3 +114,5 @@ if [ $stage -le 10 ]; then
     $nnet_dir/xvectors_train/plda || exit 1;
 fi
 
+
+echo "Stage 10: Train PLDA done."
