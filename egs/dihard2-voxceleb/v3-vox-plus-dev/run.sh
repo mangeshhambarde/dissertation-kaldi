@@ -8,7 +8,8 @@
 # See ../README.txt for more info on data required.
 # Results (mostly equal error-rates) are inline in comments below.
 #
-# Run as: submitjob -p MINI -q LONGGPU -o -l longjob=1 -eo test.log ./run.sh
+# Seems to have worked with nj=1, nt=4, np=10:
+# submitjob -p MINI -q LONGGPU -m 200000 -o -l longjob=1 -l hostname=node21 -eo test.log ./run.sh
 
 . ./cmd.sh
 . ./path.sh
@@ -103,7 +104,7 @@ if [ $stage -le 3 ]; then
   # Train the i-vector extractor.
   sid/train_ivector_extractor.sh --cmd "$train_cmd --mem 40G" \
     --ivector-dim 400 --num-iters 5 \
-    --nj 1 --num-threads 4 --num-processes 8 \
+    --nj 1 --num-threads 4 --num-processes 10 \
     exp/full_ubm/final.ubm data/train \
     exp/extractor
 fi
