@@ -22,14 +22,14 @@ DIHARD_DEV_DIR=/share/mini5/data/audvis/dia/dihard-2018-dev-for-use-with-2019-ba
 DIHARD_EVAL_DIR=/share/mini5/data/audvis/dia/dihard-2018-eval-for-use-with-2019-baseline
 
 # Path to Voxceleb I.
-VOXCELEB_DIR=/share/spandh.ami1/embed-stud-proj/2018/mangesh/ws/dissertation/corpora/voxceleb/voxceleb1
+VOXCELEB_DIR=/share/mini5/data/audvis/dia/voxceleb/voxceleb1
 
 nnet_dir=exp/xvector_nnet_1a
 
 dihard_dev=dihard_dev_2018
 voxceleb=voxceleb1_full
 
-stage=1
+stage=0
 
 if [ $stage -le 0 ]; then
   # Prepare data directory for DEV set.
@@ -68,7 +68,7 @@ if [ $stage -le 1 ]; then
   utils/fix_data_dir.sh ${VOXCELEB_DATA_DIR}
 
   # Compute VAD separately for both, because we already have gold speech
-  # segmentation for dihard (label files) but not for voxceleb.
+  # segmentation for dihard (rttm files) but not for voxceleb.
   sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
     --vad-config conf/vad-all-speech.conf \
     ${DEV_DATA_DIR} exp/make_vad $vaddir
