@@ -50,26 +50,36 @@ if [ $stage -le 0 ]; then
   local/make_voxceleb1.pl \
      $VOXCELEB_DIR data/
   utils/fix_data_dir.sh $VOXCELEB_DATA_DIR
-
-  # Combine both.
-  utils/combine_data.sh data/train $DEV_DATA_DIR $VOXCELEB_DATA_DIR
 fi
 
 echo "Stage 0: Prepare data directory done."
 
 if [ $stage -le 1 ]; then
-  # Make MFCCs.
-  # Also make a dummy vad.scp because train_diag_ubm.sh needs it.
-  # Pass options so that threshold is 0 and it thus sees 100% voiced.
-  # Since "segments" file is used, all MFCCs are already voiced.
+  # Make MFCCs for both data dirs.
   steps/make_mfcc.sh --write-utt2num-frames true \
     --mfcc-config conf/mfcc.conf --nj 40 --cmd "$train_cmd" \
-    data/train exp/make_mfcc $mfccdir
-  utils/fix_data_dir.sh data/train
+    ${DEV_DATA_DIR} exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh ${DEV_DATA_DIR}
+
+  steps/make_mfcc.sh --write-utt2num-frames true \
+    --mfcc-config conf/mfcc.conf --nj 40 --cmd "$train_cmd" \
+    ${VOXCELEB_DATA_DIR} exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh ${VOXCELEB_DATA_DIR}
+
+  # Compute VAD separately for both, because we already have gold speech
+  # segmentation for dihard (label files) but not for voxceleb.
+  sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
+    --vad-config conf/vad-all-speech.conf \
+    ${DEV_DATA_DIR} exp/make_vad $vaddir
+  utils/fix_data_dir.sh ${DEV_DATA_DIR}
 
   sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
-    data/train exp/make_vad $vaddir
-  utils/fix_data_dir.sh data/train
+    --vad-config conf/vad.conf \
+    ${VOXCELEB_DATA_DIR} exp/make_vad $vaddir
+  utils/fix_data_dir.sh ${VOXCELEB_DATA_DIR}
+
+  # Combine both.
+  utils/combine_data.sh data/train $DEV_DATA_DIR $VOXCELEB_DATA_DIR
 fi
 
 echo "Stage 1: Extract MFCC and compute VAD done."
@@ -93,7 +103,7 @@ if [ $stage -le 3 ]; then
   # Train the i-vector extractor.
   sid/train_ivector_extractor.sh --cmd "$train_cmd --mem 40G" \
     --ivector-dim 400 --num-iters 5 \
-    --nj 1 --num-threads 1 --num-processes 1 \
+    --nj 1 --num-threads 4 --num-processes 8 \
     exp/full_ubm/final.ubm data/train \
     exp/extractor
 fi
