@@ -53,7 +53,6 @@ if [ $stage -le 0 ]; then
   utils/fix_data_dir.sh $VOXCELEB_DATA_DIR
 fi
 echo "Stage 0: Prepare data directory done."
-exit
 
 if [ $stage -le 1 ]; then
   # Make MFCCs for both data dirs.
@@ -80,9 +79,21 @@ if [ $stage -le 1 ]; then
   utils/fix_data_dir.sh ${VOXCELEB_DATA_DIR}
 
   # Combine both.
-  utils/combine_data.sh data/train $DEV_DATA_DIR $VOXCELEB_DATA_DIR
+  utils/combine_data.sh data/train_with_sil $DEV_DATA_DIR $VOXCELEB_DATA_DIR
 fi
 echo "Stage 1: Extract MFCC and compute VAD done."
+
+# Now we prepare the features to generate examples for xvector training.
+if [ $stage -le 4 ]; then
+  # This script applies CMVN and removes nonspeech frames.  Note that this is somewhat
+  # wasteful, as it roughly doubles the amount of training data on disk.  After
+  # creating training examples, this can be removed.
+  local/nnet3/xvector/prepare_feats_for_egs.sh --nj 40 --cmd "$train_cmd" \
+    data/train_with_sil data/train exp/train
+  cp data/train_with_sil/segments data/train
+  cp data/train_with_sil/vad.scp data/train
+  utils/fix_data_dir.sh data/train
+fi
 
 if [ $stage -le 5 ]; then
   # Now, we need to remove features that are too short after removing silence

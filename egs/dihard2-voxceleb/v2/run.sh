@@ -27,28 +27,40 @@ stage=0
 if [ $stage -le 0 ]; then
   # Prepare data directory for DEV set.
   echo "Preparing data directory for DEV set..."
-  rm -fr data/train
+  rm -fr data/train_with_sil
   local/make_data_dir.py \
      --audio_ext '.flac' \
      --rttm_dir $DIHARD_DEV_DIR/data/single_channel/rttm \
-     data/train \
+     data/train_with_sil \
      $DIHARD_DEV_DIR/data/single_channel/flac \
      $DIHARD_DEV_DIR/data/single_channel/sad
-  utils/fix_data_dir.sh data/train
+  utils/fix_data_dir.sh data/train_with_sil
 fi
 echo "Stage 0: Prepare data directory done."
 
 if [ $stage -le 1 ]; then
   # Make MFCCs and compute the energy-based VAD.
   steps/make_mfcc.sh --write-utt2num-frames true --mfcc-config conf/mfcc.conf --nj 40 --cmd "$train_cmd" \
-    data/train exp/make_mfcc $mfccdir
-  utils/fix_data_dir.sh data/train
+    data/train_with_sil exp/make_mfcc $mfccdir
+  utils/fix_data_dir.sh data/train_with_sil
 
   sid/compute_vad_decision.sh --nj 40 --cmd "$train_cmd" \
-    data/train exp/make_vad $vaddir
-  utils/fix_data_dir.sh data/train
+    data/train_with_sil exp/make_vad $vaddir
+  utils/fix_data_dir.sh data/train_with_sil
 fi
 echo "Stage 1: Extract MFCC and compute VAD done."
+
+# Now we prepare the features to generate examples for xvector training.
+if [ $stage -le 4 ]; then
+  # This script applies CMVN and removes nonspeech frames.  Note that this is somewhat
+  # wasteful, as it roughly doubles the amount of training data on disk.  After
+  # creating training examples, this can be removed.
+  local/nnet3/xvector/prepare_feats_for_egs.sh --nj 40 --cmd "$train_cmd" \
+    data/train_with_sil data/train exp/train
+  cp data/train_with_sil/segments data/train # cuz above script doens't create segments.
+  cp data/train_with_sil/vad.scp data/train # cuz above script doens't create segments.
+  utils/fix_data_dir.sh data/train
+fi
 
 if [ $stage -le 5 ]; then
   # Now, we need to remove features that are too short after removing silence
