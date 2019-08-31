@@ -123,20 +123,24 @@ echo "Stage 4: Concatenation done."
 
 if [ $stage -le 5 ]; then
   # Compute the mean vector for centering the evaluation c-vectors.
+  echo "Computing mean vector for cvectors..."
   $train_cmd exp/cvectors_train/log/compute_mean.log \
     ivector-mean scp:exp/cvectors_train/cvector.scp \
     exp/cvectors_train/mean.vec || exit 1;
 
   # This script uses LDA to decrease the dimensionality prior to PLDA.
   lda_dim=200
+  echo "Performing LDA with dim=$lda_dim..."
   $train_cmd exp/cvectors_train/log/lda.log \
     ivector-compute-lda --total-covariance-factor=0.0 --dim=$lda_dim \
     "ark:ivector-subtract-global-mean scp:exp/cvectors_train/cvector.scp ark:- |" \
     ark:data/train_24/utt2spk exp/cvectors_train/transform.mat || exit 1;
 
   # Train the PLDA model.
+  echo "Training PLDA..."
   $train_cmd exp/cvectors_train/log/plda.log \
     ivector-compute-plda ark:data/train_24/spk2utt \
     "ark:ivector-subtract-global-mean scp:exp/cvectors_train/cvector.scp ark:- | transform-vec exp/cvectors_train/transform.mat ark:- ark:- | ivector-normalize-length ark:-  ark:- |" \
     exp/cvectors_train/plda || exit 1;
 fi
+echo "Stage 5: Train PLDA done."
