@@ -104,7 +104,6 @@ if [ $stage -le 2 ]; then
     --num-replications 1 \
     --source-sampling-rate 16000 \
     data/train_with_sil data/train_reverb
-  cp data/train_with_sil/vad.scp data/train_reverb/
   utils/copy_data_dir.sh --utt-suffix "-reverb" data/train_reverb data/train_reverb.new
   rm -rf data/train_reverb
   mv data/train_reverb.new data/train_reverb
@@ -141,7 +140,7 @@ if [ $stage -le 3 ]; then
 
   # Combine the clean and augmented VoxCeleb2 list.  This is now roughly
   # double the size of the original clean list.
-  utils/combine_data.sh data/train data/train_aug data/train_with_sil
+  utils/combine_data.sh data/train_full data/train_aug data/train_with_sil
 fi
 echo "Stage 3: Combine augment and non-augment done."
 
@@ -151,9 +150,7 @@ if [ $stage -le 4 ]; then
   # wasteful, as it roughly doubles the amount of training data on disk.  After
   # creating training examples, this can be removed.
   local/nnet3/xvector/prepare_feats_for_egs.sh --nj 40 --cmd "$train_cmd" \
-    data/train data/train exp/train
-  cp data/train/segments data/train
-  cp data/train/vad.scp data/train
+    data/train_full data/train exp/train
   utils/fix_data_dir.sh data/train
 fi
 echo "Stage 4: Remove silence frames done."
