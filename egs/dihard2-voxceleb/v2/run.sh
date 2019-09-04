@@ -70,6 +70,7 @@ if [ $stage -le 2 ]; then
     --num-replications 1 \
     --source-sampling-rate 16000 \
     data/train_with_sil data/train_reverb
+  cp data/train_with_sil/vad.scp data/train_reverb/ # above script does not make vad.scp.
   utils/copy_data_dir.sh --utt-suffix "-reverb" data/train_reverb data/train_reverb.new
   rm -rf data/train_reverb
   mv data/train_reverb.new data/train_reverb
@@ -117,6 +118,8 @@ if [ $stage -le 4 ]; then
   # creating training examples, this can be removed.
   local/nnet3/xvector/prepare_feats_for_egs.sh --nj 40 --cmd "$train_cmd" \
     data/train_full data/train exp/train
+    cp data/train_full/segments data/train # above script doens't create segments.
+    cp data/train_full/vad.scp data/train # above script doens't create vad.scp.
   utils/fix_data_dir.sh data/train
 fi
 echo "Stage 4: Remove silence frames done."
