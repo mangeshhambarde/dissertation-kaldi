@@ -160,7 +160,7 @@ echo "Stage 6-8: Train nnet done."
 
 if [ $stage -le 9 ]; then
   # Extract x-vectors for centering, LDA, and PLDA training.
-  sid/nnet3/xvector/extract_xvectors.sh --cmd "$train_cmd --mem 4G" --nj 80 --use-gpu true \
+  sid/nnet3/xvector/extract_xvectors.sh --cmd "$train_cmd --mem 4G" --nj 80 \
     $nnet_dir data/train \
     $nnet_dir/xvectors_train
 fi
